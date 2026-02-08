@@ -1,0 +1,961 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>ShirtCall — Don't think. Just wear.</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/lucide@0.460.0/dist/umd/lucide.min.js'"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      fontFamily: {
+        display: ['"Bebas Neue"', 'sans-serif'],
+        body: ['"Space Grotesk"', 'sans-serif'],
+        mono: ['"JetBrains Mono"', 'monospace'],
+      },
+      colors: {
+        bg: { DEFAULT: '#0D0D0D', card: '#1A1A1A', elevated: '#242424', hover: '#2A2A2A' },
+        accent: { DEFAULT: '#00FF66', dim: '#00CC52', glow: '#00FF6633' },
+        danger: '#FF3B3B',
+        warm: '#FF6B2B',
+      }
+    }
+  }
+}
+</script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { background: #0D0D0D; color: #fff; font-family: 'Space Grotesk', sans-serif; overflow-x: hidden; min-height: 100dvh; }
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: #0D0D0D; }
+::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
+
+/* Noise overlay */
+.noise::before {
+content: ‘’; position: fixed; inset: 0; z-index: 9999; pointer-events: none; opacity: 0.03;
+background-image: url(“data:image/svg+xml,%3Csvg viewBox=‘0 0 256 256’ xmlns=‘http://www.w3.org/2000/svg’%3E%3Cfilter id=‘n’%3E%3CfeTurbulence type=‘fractalNoise’ baseFrequency=‘0.9’ numOctaves=‘4’ stitchTiles=‘stitch’/%3E%3C/filter%3E%3Crect width=‘100%25’ height=‘100%25’ filter=‘url(%23n)’/%3E%3C/svg%3E”);
+}
+
+/* Glow pulse for SPIN button */
+@keyframes glowPulse {
+0%, 100% { box-shadow: 0 0 20px #00FF6633, 0 0 60px #00FF6611; }
+50% { box-shadow: 0 0 30px #00FF6655, 0 0 80px #00FF6622; }
+}
+.glow-pulse { animation: glowPulse 2s ease-in-out infinite; }
+
+/* Spin animation */
+@keyframes spinEntrance {
+from { transform: scale(0.8) rotate(-10deg); opacity: 0; }
+to { transform: scale(1) rotate(0deg); opacity: 1; }
+}
+.spin-entrance { animation: spinEntrance 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
+
+/* Result reveal */
+@keyframes resultReveal {
+0% { transform: scale(0.3) rotate(-20deg); opacity: 0; filter: blur(10px); }
+60% { transform: scale(1.1) rotate(2deg); opacity: 1; filter: blur(0); }
+100% { transform: scale(1) rotate(0deg); opacity: 1; filter: blur(0); }
+}
+.result-reveal { animation: resultReveal 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
+
+/* Badge fly in */
+@keyframes badgeFly {
+0% { transform: translateY(30px) scale(0); opacity: 0; }
+60% { transform: translateY(-5px) scale(1.1); opacity: 1; }
+100% { transform: translateY(0) scale(1); opacity: 1; }
+}
+.badge-fly { animation: badgeFly 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
+
+/* Slide up */
+@keyframes slideUp {
+from { transform: translateY(30px); opacity: 0; }
+to { transform: translateY(0); opacity: 1; }
+}
+.slide-up { animation: slideUp 0.4s ease-out forwards; }
+
+/* Roulette strip */
+@keyframes rouletteScroll {
+0% { transform: translateY(0); }
+100% { transform: translateY(var(–scroll-distance)); }
+}
+
+/* Streak fire */
+@keyframes firePulse {
+0%, 100% { text-shadow: 0 0 10px #FF6B2B55; }
+50% { text-shadow: 0 0 20px #FF6B2B99, 0 0 40px #FF6B2B44; }
+}
+.fire-pulse { animation: firePulse 1.5s ease-in-out infinite; }
+
+/* Page transitions */
+.page { display: none; opacity: 0; transition: opacity 0.25s ease; }
+.page.active { display: flex; flex-direction: column; opacity: 1; }
+
+/* Button hover */
+.btn-hover { transition: all 0.15s ease; }
+.btn-hover:hover { transform: translateY(-1px); }
+.btn-hover:active { transform: translateY(1px) scale(0.98); }
+
+/* Hot/cold indicators */
+.shirt-hot { border: 2px solid #FF6B2B; }
+.shirt-cold { border: 2px solid #3B82F6; }
+.shirt-normal { border: 2px solid #333; }
+
+/* Toast */
+@keyframes toastIn {
+from { transform: translateY(100%) scale(0.9); opacity: 0; }
+to { transform: translateY(0) scale(1); opacity: 1; }
+}
+@keyframes toastOut {
+from { transform: translateY(0) scale(1); opacity: 1; }
+to { transform: translateY(100%) scale(0.9); opacity: 0; }
+}
+
+/* Roulette window */
+.roulette-window {
+height: 320px; overflow: hidden; position: relative;
+mask-image: linear-gradient(to bottom, transparent 0%, black 20%, black 80%, transparent 100%);
+-webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 20%, black 80%, transparent 100%);
+}
+.roulette-strip { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.roulette-pointer {
+position: absolute; top: 50%; left: 0; right: 0; transform: translateY(-50%); z-index: 10;
+height: 110px; border-top: 2px solid #00FF66; border-bottom: 2px solid #00FF66;
+background: #00FF660A; pointer-events: none;
+}
+</style>
+
+</head>
+<body class="noise">
+
+<!-- ==================== WELCOME PAGE ==================== -->
+
+<div id="page-welcome" class="page min-h-screen items-center justify-center px-6">
+  <div class="text-center max-w-md mx-auto">
+    <div class="mb-8 slide-up" style="animation-delay: 0.1s; opacity: 0;">
+      <div class="w-20 h-20 mx-auto bg-bg-card rounded-lg flex items-center justify-center mb-6 border border-bg-elevated">
+        <i data-lucide="shirt" class="w-10 h-10 text-accent"></i>
+      </div>
+      <h1 class="font-display text-6xl tracking-wide text-accent mb-2">SHIRTCALL</h1>
+      <p class="text-gray-400 text-lg font-body">Don't think. Just wear.</p>
+    </div>
+    <div class="space-y-4 slide-up" style="animation-delay: 0.3s; opacity: 0;">
+      <p class="text-gray-300 leading-relaxed">ShirtCall picks your shirt.<br>You just wear it.</p>
+      <p class="text-gray-500 text-sm">Upload your shirts. Spin the wheel. Done.</p>
+    </div>
+    <button onclick="startOnboarding()" class="mt-10 slide-up btn-hover" style="animation-delay: 0.5s; opacity: 0;">
+      <div class="bg-accent text-bg font-display text-2xl tracking-widest px-12 py-4 rounded-md hover:bg-accent-dim transition-colors">
+        LET'S GO
+      </div>
+    </button>
+  </div>
+</div>
+
+<!-- ==================== UPLOAD PAGE ==================== -->
+
+<div id="page-upload" class="page min-h-screen px-6 pt-16 pb-24">
+  <div class="max-w-md mx-auto w-full">
+    <button onclick="goBack()" class="mb-6 text-gray-500 flex items-center gap-2 btn-hover">
+      <i data-lucide="arrow-left" class="w-4 h-4"></i>
+      <span class="text-sm">Back</span>
+    </button>
+    <h2 class="font-display text-4xl tracking-wide mb-2">YOUR SHIRTS</h2>
+    <p class="text-gray-400 mb-8" id="upload-subtitle">First, show me your shirts.</p>
+
+```
+<!-- Upload area -->
+<label id="upload-zone" class="block border-2 border-dashed border-bg-elevated rounded-lg p-8 text-center cursor-pointer hover:border-accent/30 transition-colors mb-6">
+  <input type="file" accept="image/*" multiple class="hidden" id="file-input" onchange="handleFileUpload(event)">
+  <div class="flex flex-col items-center gap-3">
+    <div class="w-14 h-14 rounded-full bg-bg-elevated flex items-center justify-center">
+      <i data-lucide="plus" class="w-6 h-6 text-accent"></i>
+    </div>
+    <p class="text-gray-300 font-medium">Tap to add shirts</p>
+    <p class="text-gray-600 text-sm">JPG, PNG, WEBP</p>
+  </div>
+</label>
+
+<!-- Shirt grid preview -->
+<div id="upload-grid" class="grid grid-cols-3 gap-3 mb-8"></div>
+
+<!-- Shirt count & message -->
+<div id="upload-message" class="text-center mb-6"></div>
+
+<!-- Continue button -->
+<button id="btn-continue" onclick="finishUpload()" class="w-full bg-accent text-bg font-display text-xl tracking-widest py-4 rounded-md btn-hover hover:bg-accent-dim transition-colors hidden">
+  READY TO SPIN
+</button>
+```
+
+  </div>
+</div>
+
+<!-- ==================== MAIN / SPIN PAGE ==================== -->
+
+<div id="page-main" class="page min-h-screen px-6 pt-10 pb-24">
+  <div class="max-w-md mx-auto w-full flex-1 flex flex-col">
+    <!-- Header -->
+    <div class="flex items-center justify-between mb-6">
+      <div>
+        <h1 class="font-display text-3xl tracking-wide text-accent">SHIRTCALL</h1>
+      </div>
+      <div class="flex items-center gap-3">
+        <button onclick="showPage('page-stats')" class="w-10 h-10 rounded-lg bg-bg-card flex items-center justify-center btn-hover border border-bg-elevated hover:border-accent/30">
+          <i data-lucide="trophy" class="w-5 h-5 text-gray-400"></i>
+        </button>
+        <button onclick="showPage('page-shirts')" class="w-10 h-10 rounded-lg bg-bg-card flex items-center justify-center btn-hover border border-bg-elevated hover:border-accent/30">
+          <i data-lucide="grid-3x3" class="w-5 h-5 text-gray-400"></i>
+        </button>
+      </div>
+    </div>
+
+```
+<!-- Streak -->
+<div id="streak-display" class="flex items-center gap-2 mb-8 hidden">
+  <i data-lucide="flame" class="w-5 h-5 text-warm fire-pulse"></i>
+  <span class="font-mono text-warm font-bold" id="streak-count">0</span>
+  <span class="text-gray-500 text-sm">day streak</span>
+</div>
+
+<!-- Shirt count -->
+<div class="text-center mb-6">
+  <p class="text-gray-500 text-sm font-mono"><span id="shirt-count-main">0</span> shirts loaded</p>
+</div>
+
+<!-- SPIN BUTTON -->
+<div class="flex-1 flex items-center justify-center my-4">
+  <button id="btn-spin" onclick="startSpin()" class="relative group">
+    <div class="w-52 h-52 rounded-full bg-accent flex items-center justify-center glow-pulse group-hover:scale-105 group-active:scale-95 transition-transform">
+      <span class="font-display text-bg text-5xl tracking-widest">SPIN</span>
+    </div>
+  </button>
+</div>
+
+<!-- Bottom tagline -->
+<p class="text-center text-gray-600 text-sm mt-6" id="main-tagline">The wheel decides. You just wear it.</p>
+```
+
+  </div>
+</div>
+
+<!-- ==================== ROULETTE PAGE ==================== -->
+
+<div id="page-roulette" class="page min-h-screen items-center justify-center px-6">
+  <div class="max-w-md mx-auto w-full text-center">
+    <p class="font-display text-2xl tracking-wide text-gray-400 mb-8">SPINNING...</p>
+    <div class="roulette-window rounded-lg bg-bg-card relative mb-8">
+      <div class="roulette-pointer"></div>
+      <div id="roulette-strip" class="roulette-strip py-4"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== RESULT PAGE ==================== -->
+
+<div id="page-result" class="page min-h-screen items-center justify-center px-6 py-10">
+  <div class="max-w-md mx-auto w-full text-center">
+    <p class="font-display text-xl tracking-wide text-accent mb-6" id="result-tagline">THE WHEEL HAS SPOKEN.</p>
+
+```
+<div id="result-shirt" class="result-reveal mb-8">
+  <div class="w-64 h-64 mx-auto rounded-lg overflow-hidden bg-bg-card border-2 border-accent/30 shadow-lg shadow-accent/10">
+    <img id="result-img" src="" alt="" class="w-full h-full object-cover">
+  </div>
+  <p class="font-body text-lg text-gray-300 mt-4" id="result-name"></p>
+</div>
+
+<!-- New badge notification -->
+<div id="badge-notification" class="hidden mb-6"></div>
+
+<div class="flex flex-col gap-3 w-full max-w-xs mx-auto">
+  <button onclick="startSpin()" class="bg-accent text-bg font-display text-xl tracking-widest py-4 rounded-md btn-hover hover:bg-accent-dim transition-colors">
+    SPIN AGAIN
+  </button>
+  <button onclick="shareResult()" class="bg-bg-card text-accent font-display text-lg tracking-widest py-3 rounded-md btn-hover border border-accent/20 hover:border-accent/40 flex items-center justify-center gap-2">
+    <i data-lucide="share-2" class="w-5 h-5"></i>
+    SHARE
+  </button>
+  <button onclick="showPage('page-main')" class="text-gray-500 text-sm btn-hover py-2">
+    Back to home
+  </button>
+</div>
+```
+
+  </div>
+</div>
+
+<!-- ==================== MY SHIRTS PAGE ==================== -->
+
+<div id="page-shirts" class="page min-h-screen px-6 pt-10 pb-24">
+  <div class="max-w-md mx-auto w-full">
+    <div class="flex items-center justify-between mb-6">
+      <button onclick="showPage('page-main')" class="text-gray-500 flex items-center gap-2 btn-hover">
+        <i data-lucide="arrow-left" class="w-4 h-4"></i>
+      </button>
+      <h2 class="font-display text-2xl tracking-wide">MY SHIRTS</h2>
+      <label class="w-10 h-10 rounded-lg bg-accent/10 flex items-center justify-center btn-hover cursor-pointer border border-accent/20 hover:border-accent/40">
+        <input type="file" accept="image/*" multiple class="hidden" onchange="handleFileUpload(event)">
+        <i data-lucide="plus" class="w-5 h-5 text-accent"></i>
+      </label>
+    </div>
+    <p class="text-gray-500 text-sm mb-6 font-mono"><span id="shirt-count-gallery">0</span> shirts</p>
+    <div id="shirts-grid" class="grid grid-cols-3 gap-3"></div>
+    <div id="shirts-empty" class="text-center py-20 hidden">
+      <i data-lucide="shirt" class="w-12 h-12 text-gray-700 mx-auto mb-4"></i>
+      <p class="text-gray-500">No shirts yet. Add some!</p>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== SHIRT DETAIL MODAL ==================== -->
+
+<div id="modal-shirt" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/80 backdrop-blur-sm px-6" onclick="closeModal(event)">
+  <div class="bg-bg-card rounded-lg p-6 max-w-sm w-full" onclick="event.stopPropagation()">
+    <div class="w-full aspect-square rounded-lg overflow-hidden bg-bg-elevated mb-4">
+      <img id="modal-img" src="" alt="" class="w-full h-full object-cover">
+    </div>
+    <h3 class="font-display text-xl tracking-wide mb-1" id="modal-name"></h3>
+    <div class="flex items-center gap-4 text-sm text-gray-400 font-mono mb-6">
+      <span><span id="modal-picks" class="text-accent">0</span> picks</span>
+      <span>Last: <span id="modal-last" class="text-gray-300">Never</span></span>
+    </div>
+    <button onclick="confirmRetire()" class="w-full py-3 rounded-md border border-danger/30 text-danger font-display tracking-widest btn-hover hover:bg-danger/10 flex items-center justify-center gap-2">
+      <i data-lucide="trash-2" class="w-4 h-4"></i>
+      RETIRE THIS SHIRT
+    </button>
+  </div>
+</div>
+
+<!-- ==================== STATS PAGE ==================== -->
+
+<div id="page-stats" class="page min-h-screen px-6 pt-10 pb-24">
+  <div class="max-w-md mx-auto w-full">
+    <div class="flex items-center justify-between mb-8">
+      <button onclick="showPage('page-main')" class="text-gray-500 flex items-center gap-2 btn-hover">
+        <i data-lucide="arrow-left" class="w-4 h-4"></i>
+      </button>
+      <h2 class="font-display text-2xl tracking-wide">STATS</h2>
+      <div class="w-8"></div>
+    </div>
+
+```
+<!-- Streak -->
+<div class="bg-bg-card rounded-lg p-6 mb-4 border border-bg-elevated">
+  <div class="flex items-center gap-3 mb-3">
+    <i data-lucide="flame" class="w-6 h-6 text-warm"></i>
+    <span class="font-display text-lg tracking-wide text-gray-300">STREAK</span>
+  </div>
+  <div class="flex items-baseline gap-2">
+    <span class="font-mono text-5xl font-bold text-warm fire-pulse" id="stats-streak">0</span>
+    <span class="text-gray-500">days</span>
+  </div>
+  <p class="text-gray-600 text-sm mt-2 font-mono">Best: <span id="stats-best-streak" class="text-gray-400">0</span></p>
+</div>
+
+<!-- Stats grid -->
+<div class="grid grid-cols-2 gap-4 mb-8">
+  <div class="bg-bg-card rounded-lg p-5 border border-bg-elevated">
+    <i data-lucide="rotate-cw" class="w-5 h-5 text-accent mb-2"></i>
+    <p class="font-mono text-3xl font-bold text-white" id="stats-spins">0</p>
+    <p class="text-gray-500 text-sm">Total spins</p>
+  </div>
+  <div class="bg-bg-card rounded-lg p-5 border border-bg-elevated">
+    <i data-lucide="shirt" class="w-5 h-5 text-accent mb-2"></i>
+    <p class="font-mono text-3xl font-bold text-white" id="stats-shirts">0</p>
+    <p class="text-gray-500 text-sm">Shirts loaded</p>
+  </div>
+  <div class="bg-bg-card rounded-lg p-5 border border-bg-elevated col-span-2">
+    <div class="flex items-center gap-2 mb-1">
+      <i data-lucide="crown" class="w-5 h-5 text-yellow-500"></i>
+      <p class="text-gray-500 text-sm">Most picked shirt</p>
+    </div>
+    <p class="font-body text-lg text-white truncate" id="stats-most-picked">—</p>
+  </div>
+  <div class="bg-bg-card rounded-lg p-5 border border-bg-elevated col-span-2">
+    <div class="flex items-center gap-2 mb-1">
+      <i data-lucide="snowflake" class="w-5 h-5 text-blue-400"></i>
+      <p class="text-gray-500 text-sm">Longest benched</p>
+    </div>
+    <p class="font-body text-lg text-white truncate" id="stats-benched">—</p>
+  </div>
+</div>
+
+<!-- Badges -->
+<h3 class="font-display text-xl tracking-wide mb-4 text-gray-300">BADGES</h3>
+<div id="badges-grid" class="grid grid-cols-2 gap-3"></div>
+```
+
+  </div>
+</div>
+
+<!-- ==================== TOAST ==================== -->
+
+<div id="toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-bg-elevated border border-accent/20 text-white px-5 py-3 rounded-lg shadow-xl font-body text-sm hidden" style="min-width: 200px; text-align: center;"></div>
+
+<script>
+// =============================================
+// DATA LAYER
+// =============================================
+const STORAGE_KEYS = {
+  shirts: 'shirtcall_shirts',
+  history: 'shirtcall_history',
+  streak: 'shirtcall_streak',
+  badges: 'shirtcall_badges',
+  onboarded: 'shirtcall_onboarded',
+  totalSpins: 'shirtcall_total_spins'
+};
+
+function loadData(key, fallback) {
+  try { const d = localStorage.getItem(key); return d ? JSON.parse(d) : fallback; }
+  catch { return fallback; }
+}
+function saveData(key, value) {
+  try { localStorage.setItem(key, JSON.stringify(value)); } catch(e) { console.warn('Storage full', e); }
+}
+
+let shirts = loadData(STORAGE_KEYS.shirts, []);
+let history = loadData(STORAGE_KEYS.history, []);
+let streak = loadData(STORAGE_KEYS.streak, { current: 0, best: 0, lastDate: null });
+let badges = loadData(STORAGE_KEYS.badges, []);
+let totalSpins = loadData(STORAGE_KEYS.totalSpins, 0);
+let isOnboarded = loadData(STORAGE_KEYS.onboarded, false);
+let currentResult = null;
+let currentDetailShirt = null;
+let previousPage = 'page-main';
+
+// =============================================
+// BADGE DEFINITIONS
+// =============================================
+const BADGE_DEFS = [
+  { id: 'first_spin', name: 'First Spin', desc: 'Your first roll of destiny', icon: 'zap' },
+  { id: 'fully_loaded', name: 'Fully Loaded', desc: '10+ shirts in the arsenal', icon: 'package' },
+  { id: 'creature', name: 'Creature of Habit', desc: 'Same shirt 3x in a week', icon: 'repeat' },
+  { id: 'streak_7', name: '7-Day Streak', desc: 'A full week spinning', icon: 'flame' },
+  { id: 'streak_30', name: '30-Day Streak', desc: 'A whole month. Legend.', icon: 'award' },
+  { id: 'variety', name: 'Variety King', desc: 'Wore every shirt at least once', icon: 'shuffle' },
+  { id: 'spin_50', name: 'Spin Master', desc: '50 total spins', icon: 'rotate-cw' },
+  { id: 'spin_100', name: 'Centurion', desc: '100 total spins. Respect.', icon: 'crown' },
+];
+
+// =============================================
+// RESULT TAGLINES
+// =============================================
+const TAGLINES = [
+  "THE WHEEL HAS SPOKEN.",
+  "DESTINY CHOSE THIS.",
+  "DON'T QUESTION IT.",
+  "TODAY'S PICK. DEAL WITH IT.",
+  "THE SHIRT GODS HAVE DECIDED.",
+  "THIS ONE. NO DEBATE.",
+  "FATE HAS STYLE.",
+  "TRUST THE SPIN.",
+];
+
+const SHARE_TEXTS = [
+  "The wheel has spoken.",
+  "Destiny chose this shirt.",
+  "I don't pick my shirts. ShirtCall does.",
+  "ShirtCall picked this for me today.",
+  "No decisions were harmed in the making of this outfit.",
+];
+
+// Safe Lucide init
+function initIcons() {
+  try { if (typeof lucide !== 'undefined') lucide.createIcons(); } catch(e) { console.warn('Lucide icons not available'); }
+}
+
+// =============================================
+// NAVIGATION
+// =============================================
+function showPage(pageId) {
+  document.querySelectorAll('.page').forEach(p => { p.classList.remove('active'); });
+  const page = document.getElementById(pageId);
+  if (page) {
+    page.classList.add('active');
+    if (pageId === 'page-main') updateMainPage();
+    if (pageId === 'page-shirts') updateShirtsPage();
+    if (pageId === 'page-stats') updateStatsPage();
+  }
+  initIcons();
+}
+
+function goBack() {
+  if (isOnboarded && shirts.length >= 3) showPage('page-main');
+  else showPage('page-welcome');
+}
+
+// =============================================
+// INITIALIZATION
+// =============================================
+function init() {
+  if (isOnboarded && shirts.length > 0) {
+    showPage('page-main');
+  } else {
+    showPage('page-welcome');
+  }
+  initIcons();
+}
+
+function startOnboarding() {
+  showPage('page-upload');
+  updateUploadPage();
+}
+
+// =============================================
+// UPLOAD HANDLING
+// =============================================
+function handleFileUpload(event) {
+  const files = Array.from(event.target.files);
+  files.forEach(file => {
+    if (!file.type.startsWith('image/')) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      // Compress image
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const maxSize = 400;
+        let w = img.width, h = img.height;
+        if (w > h) { h = (h / w) * maxSize; w = maxSize; }
+        else { w = (w / h) * maxSize; h = maxSize; }
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        const compressed = canvas.toDataURL('image/jpeg', 0.7);
+        
+        const shirt = {
+          id: Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+          name: `Shirt #${shirts.length + 1}`,
+          image: compressed,
+          timesChosen: 0,
+          lastChosen: null,
+          addedAt: new Date().toISOString()
+        };
+        shirts.push(shirt);
+        saveData(STORAGE_KEYS.shirts, shirts);
+        updateUploadPage();
+        updateShirtsPage();
+        checkBadge('fully_loaded', shirts.length >= 10);
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+  event.target.value = '';
+}
+
+function updateUploadPage() {
+  const grid = document.getElementById('upload-grid');
+  const msg = document.getElementById('upload-message');
+  const btn = document.getElementById('btn-continue');
+  const subtitle = document.getElementById('upload-subtitle');
+
+  if (isOnboarded) subtitle.textContent = 'Add more shirts to the mix.';
+  
+  grid.innerHTML = shirts.map(s => `
+    <div class="aspect-square rounded-lg overflow-hidden bg-bg-card border border-bg-elevated">
+      <img src="${s.image}" alt="${s.name}" class="w-full h-full object-cover">
+    </div>
+  `).join('');
+
+  if (shirts.length === 0) {
+    msg.innerHTML = '<p class="text-gray-500 text-sm">No shirts yet. Get started!</p>';
+    btn.classList.add('hidden');
+  } else if (shirts.length < 3) {
+    msg.innerHTML = `<p class="text-gray-400 font-mono text-sm">${shirts.length} shirt${shirts.length > 1 ? 's' : ''}. Need at least 3 to spin.</p>`;
+    btn.classList.add('hidden');
+  } else {
+    const quips = [
+      `${shirts.length} shirts loaded. Let's roll.`,
+      `Only ${shirts.length} shirts? Respect. Let's roll.`,
+      `${shirts.length} shirts ready for destiny.`,
+    ];
+    msg.innerHTML = `<p class="text-accent font-mono text-sm">${quips[shirts.length % quips.length]}</p>`;
+    btn.classList.remove('hidden');
+  }
+}
+
+function finishUpload() {
+  isOnboarded = true;
+  saveData(STORAGE_KEYS.onboarded, true);
+  showPage('page-main');
+}
+
+// =============================================
+// MAIN PAGE
+// =============================================
+function updateMainPage() {
+  document.getElementById('shirt-count-main').textContent = shirts.length;
+  
+  // Streak display
+  const streakDisplay = document.getElementById('streak-display');
+  const streakCount = document.getElementById('streak-count');
+  if (streak.current > 0) {
+    streakDisplay.classList.remove('hidden');
+    streakCount.textContent = streak.current;
+  } else {
+    streakDisplay.classList.add('hidden');
+  }
+
+  // Taglines
+  const taglines = [
+    "The wheel decides. You just wear it.",
+    "Stop overthinking. Start spinning.",
+    "Your closet. Your destiny.",
+    "One spin. Zero regrets.",
+  ];
+  document.getElementById('main-tagline').textContent = taglines[Math.floor(Math.random() * taglines.length)];
+}
+
+// =============================================
+// ROULETTE / SPIN
+// =============================================
+function startSpin() {
+  if (shirts.length < 1) return;
+  if (shirts.length === 1) {
+    currentResult = shirts[0];
+    showResult("TOUGH CHOICE... IT'S THIS ONE.");
+    return;
+  }
+
+  // Weighted random — prefer shirts not worn recently
+  const now = Date.now();
+  const weights = shirts.map(s => {
+    if (!s.lastChosen) return 10;
+    const daysSince = (now - new Date(s.lastChosen).getTime()) / (1000 * 60 * 60 * 24);
+    return Math.max(1, Math.min(10, daysSince + 1));
+  });
+  const totalWeight = weights.reduce((a, b) => a + b, 0);
+  let rand = Math.random() * totalWeight;
+  let chosen = shirts[0];
+  for (let i = 0; i < shirts.length; i++) {
+    rand -= weights[i];
+    if (rand <= 0) { chosen = shirts[i]; break; }
+  }
+
+  currentResult = chosen;
+  showRoulette(chosen);
+}
+
+function showRoulette(chosen) {
+  showPage('page-roulette');
+  const strip = document.getElementById('roulette-strip');
+  
+  // Build strip: random shirts, then chosen in middle of viewport
+  const items = [];
+  const totalItems = 20 + Math.floor(Math.random() * 10);
+  for (let i = 0; i < totalItems; i++) {
+    const s = shirts[Math.floor(Math.random() * shirts.length)];
+    items.push(s);
+  }
+  // Place chosen shirt near the end
+  const chosenIdx = totalItems - 3;
+  items[chosenIdx] = chosen;
+
+  strip.innerHTML = items.map((s, i) => `
+    <div class="w-24 h-24 rounded-lg overflow-hidden bg-bg-elevated flex-shrink-0 border border-bg-elevated ${i === chosenIdx ? 'chosen-item' : ''}">
+      <img src="${s.image}" alt="${s.name}" class="w-full h-full object-cover">
+    </div>
+  `).join('');
+
+  // Calculate scroll distance to center chosen item
+  const itemHeight = 96 + 12; // 24*4 px + gap
+  const windowHeight = 320;
+  const targetScroll = -(chosenIdx * itemHeight - windowHeight / 2 + 48);
+
+  strip.style.transition = 'none';
+  strip.style.transform = 'translateY(0)';
+
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      strip.style.transition = 'transform 2.5s cubic-bezier(0.15, 0.85, 0.35, 1)';
+      strip.style.transform = `translateY(${targetScroll}px)`;
+    });
+  });
+
+  setTimeout(() => {
+    recordSpin(chosen);
+    showResult();
+  }, 2800);
+}
+
+function recordSpin(shirt) {
+  // Update shirt stats
+  const idx = shirts.findIndex(s => s.id === shirt.id);
+  if (idx >= 0) {
+    shirts[idx].timesChosen = (shirts[idx].timesChosen || 0) + 1;
+    shirts[idx].lastChosen = new Date().toISOString();
+    saveData(STORAGE_KEYS.shirts, shirts);
+  }
+
+  // History
+  history.push({ date: new Date().toISOString(), shirtId: shirt.id });
+  saveData(STORAGE_KEYS.history, history);
+
+  // Total spins
+  totalSpins++;
+  saveData(STORAGE_KEYS.totalSpins, totalSpins);
+
+  // Streak
+  updateStreak();
+
+  // Check badges
+  checkBadge('first_spin', totalSpins >= 1);
+  checkBadge('fully_loaded', shirts.length >= 10);
+  checkBadge('spin_50', totalSpins >= 50);
+  checkBadge('spin_100', totalSpins >= 100);
+  checkBadge('streak_7', streak.current >= 7);
+  checkBadge('streak_30', streak.current >= 30);
+  
+  // Creature of habit — same shirt 3x in last 7 days
+  const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+  const recentHistory = history.filter(h => new Date(h.date).getTime() > weekAgo);
+  const countMap = {};
+  recentHistory.forEach(h => { countMap[h.shirtId] = (countMap[h.shirtId] || 0) + 1; });
+  if (Object.values(countMap).some(c => c >= 3)) checkBadge('creature', true);
+
+  // Variety king — every shirt picked at least once
+  if (shirts.length >= 3 && shirts.every(s => s.timesChosen > 0)) checkBadge('variety', true);
+}
+
+function updateStreak() {
+  const today = new Date().toDateString();
+  const yesterday = new Date(Date.now() - 86400000).toDateString();
+
+  if (streak.lastDate === today) return; // Already spun today
+
+  if (streak.lastDate === yesterday) {
+    streak.current++;
+  } else if (streak.lastDate !== today) {
+    streak.current = 1;
+  }
+  streak.lastDate = today;
+  streak.best = Math.max(streak.best, streak.current);
+  saveData(STORAGE_KEYS.streak, streak);
+}
+
+function showResult(customTagline) {
+  showPage('page-result');
+  if (!currentResult) return;
+
+  document.getElementById('result-img').src = currentResult.image;
+  document.getElementById('result-name').textContent = currentResult.name;
+  document.getElementById('result-tagline').textContent = customTagline || TAGLINES[Math.floor(Math.random() * TAGLINES.length)];
+
+  // Show badge notification if new badge was just earned
+  const notif = document.getElementById('badge-notification');
+  if (window._newBadge) {
+    const badge = BADGE_DEFS.find(b => b.id === window._newBadge);
+    if (badge) {
+      notif.innerHTML = `
+        <div class="badge-fly bg-bg-card border border-accent/30 rounded-lg px-5 py-3 inline-flex items-center gap-3">
+          <i data-lucide="${badge.icon}" class="w-5 h-5 text-accent"></i>
+          <div class="text-left">
+            <p class="text-accent text-sm font-bold">${badge.name}</p>
+            <p class="text-gray-500 text-xs">${badge.desc}</p>
+          </div>
+        </div>
+      `;
+      notif.classList.remove('hidden');
+      initIcons();
+    }
+    window._newBadge = null;
+  } else {
+    notif.classList.add('hidden');
+  }
+}
+
+// =============================================
+// SHARE
+// =============================================
+async function shareResult() {
+  if (!currentResult) return;
+  const text = SHARE_TEXTS[Math.floor(Math.random() * SHARE_TEXTS.length)];
+  const shareData = {
+    title: 'ShirtCall',
+    text: text + '\n\nTry it: ',
+    url: window.location.href
+  };
+
+  if (navigator.share) {
+    try { await navigator.share(shareData); }
+    catch (e) { if (e.name !== 'AbortError') fallbackShare(text); }
+  } else {
+    fallbackShare(text);
+  }
+}
+
+function fallbackShare(text) {
+  const fullText = `${text}\n\nTry ShirtCall: ${window.location.href}`;
+  navigator.clipboard.writeText(fullText).then(() => {
+    showToast('Copied to clipboard!');
+  }).catch(() => {
+    showToast('Could not copy. Share the link manually!');
+  });
+}
+
+// =============================================
+// MY SHIRTS
+// =============================================
+function updateShirtsPage() {
+  const grid = document.getElementById('shirts-grid');
+  const empty = document.getElementById('shirts-empty');
+  const count = document.getElementById('shirt-count-gallery');
+  
+  count.textContent = shirts.length;
+
+  if (shirts.length === 0) {
+    grid.classList.add('hidden');
+    empty.classList.remove('hidden');
+    return;
+  }
+  
+  grid.classList.remove('hidden');
+  empty.classList.add('hidden');
+
+  // Determine hot/cold
+  const maxPicks = Math.max(...shirts.map(s => s.timesChosen || 0));
+  const avgPicks = shirts.reduce((sum, s) => sum + (s.timesChosen || 0), 0) / shirts.length;
+
+  grid.innerHTML = shirts.map(s => {
+    let borderClass = 'shirt-normal';
+    if (s.timesChosen > avgPicks * 1.5 && s.timesChosen > 2) borderClass = 'shirt-hot';
+    else if (s.timesChosen === 0 && shirts.some(x => x.timesChosen > 0)) borderClass = 'shirt-cold';
+
+    return `
+      <div class="relative aspect-square rounded-lg overflow-hidden bg-bg-card ${borderClass} cursor-pointer btn-hover group" onclick="showShirtDetail('${s.id}')">
+        <img src="${s.image}" alt="${s.name}" class="w-full h-full object-cover group-hover:scale-105 transition-transform">
+        <div class="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/80 to-transparent p-2">
+          <p class="text-xs font-mono text-gray-300 truncate">${s.name}</p>
+          <p class="text-xs font-mono text-gray-500">${s.timesChosen || 0}x</p>
+        </div>
+        ${borderClass === 'shirt-hot' ? '<div class="absolute top-1 right-1 text-warm"><i data-lucide="flame" class="w-3 h-3"></i></div>' : ''}
+        ${borderClass === 'shirt-cold' ? '<div class="absolute top-1 right-1 text-blue-400"><i data-lucide="snowflake" class="w-3 h-3"></i></div>' : ''}
+      </div>
+    `;
+  }).join('');
+
+  initIcons();
+}
+
+function showShirtDetail(id) {
+  const shirt = shirts.find(s => s.id === id);
+  if (!shirt) return;
+  currentDetailShirt = shirt;
+
+  document.getElementById('modal-img').src = shirt.image;
+  document.getElementById('modal-name').textContent = shirt.name;
+  document.getElementById('modal-picks').textContent = shirt.timesChosen || 0;
+  document.getElementById('modal-last').textContent = shirt.lastChosen 
+    ? new Date(shirt.lastChosen).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+    : 'Never';
+
+  const modal = document.getElementById('modal-shirt');
+  modal.classList.remove('hidden');
+  modal.classList.add('flex');
+}
+
+function closeModal(event) {
+  const modal = document.getElementById('modal-shirt');
+  modal.classList.add('hidden');
+  modal.classList.remove('flex');
+}
+
+function confirmRetire() {
+  if (!currentDetailShirt) return;
+  if (!confirm(`Retire "${currentDetailShirt.name}"? This can't be undone.`)) return;
+
+  shirts = shirts.filter(s => s.id !== currentDetailShirt.id);
+  saveData(STORAGE_KEYS.shirts, shirts);
+  closeModal();
+  updateShirtsPage();
+  updateMainPage();
+  showToast('Shirt retired. Gone but not forgotten.');
+}
+
+// =============================================
+// STATS
+// =============================================
+function updateStatsPage() {
+  document.getElementById('stats-streak').textContent = streak.current;
+  document.getElementById('stats-best-streak').textContent = streak.best;
+  document.getElementById('stats-spins').textContent = totalSpins;
+  document.getElementById('stats-shirts').textContent = shirts.length;
+
+  // Most picked
+  if (shirts.length > 0) {
+    const sorted = [...shirts].sort((a, b) => (b.timesChosen || 0) - (a.timesChosen || 0));
+    document.getElementById('stats-most-picked').textContent = sorted[0].timesChosen > 0 
+      ? `${sorted[0].name} (${sorted[0].timesChosen}x)` : '—';
+
+    // Longest benched
+    const withPicks = shirts.filter(s => s.timesChosen > 0);
+    if (withPicks.length > 0) {
+      const benched = [...shirts].sort((a, b) => {
+        const aDate = a.lastChosen ? new Date(a.lastChosen).getTime() : 0;
+        const bDate = b.lastChosen ? new Date(b.lastChosen).getTime() : 0;
+        return aDate - bDate;
+      });
+      document.getElementById('stats-benched').textContent = benched[0].name;
+    }
+  }
+
+  // Badges
+  const grid = document.getElementById('badges-grid');
+  grid.innerHTML = BADGE_DEFS.map(b => {
+    const earned = badges.includes(b.id);
+    return `
+      <div class="rounded-lg p-4 border ${earned ? 'bg-bg-card border-accent/20' : 'bg-bg border-bg-elevated opacity-40'}">
+        <div class="flex items-center gap-2 mb-2">
+          <i data-lucide="${b.icon}" class="w-5 h-5 ${earned ? 'text-accent' : 'text-gray-600'}"></i>
+          <span class="font-display text-sm tracking-wide ${earned ? 'text-white' : 'text-gray-600'}">${b.name}</span>
+        </div>
+        <p class="text-xs ${earned ? 'text-gray-400' : 'text-gray-700'}">${b.desc}</p>
+      </div>
+    `;
+  }).join('');
+
+  initIcons();
+}
+
+// =============================================
+// BADGES
+// =============================================
+function checkBadge(id, condition) {
+  if (!condition || badges.includes(id)) return;
+  badges.push(id);
+  saveData(STORAGE_KEYS.badges, badges);
+  window._newBadge = id;
+}
+
+// =============================================
+// TOAST
+// =============================================
+function showToast(msg) {
+  const toast = document.getElementById('toast');
+  toast.textContent = msg;
+  toast.classList.remove('hidden');
+  toast.style.animation = 'toastIn 0.3s ease forwards';
+  setTimeout(() => {
+    toast.style.animation = 'toastOut 0.3s ease forwards';
+    setTimeout(() => toast.classList.add('hidden'), 300);
+  }, 2500);
+}
+
+// =============================================
+// INIT
+// =============================================
+document.addEventListener('DOMContentLoaded', () => {
+  // Give CDN scripts a moment to load
+  setTimeout(() => { init(); }, 100);
+});
+</script>
+
+</body>
+</html>
